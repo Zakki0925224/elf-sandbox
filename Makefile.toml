@@ -1,0 +1,6 @@
+[tasks.run]
+description = "Run"
+script = ['''
+cargo build
+sudo ./target/debug/elf-sandbox
+''']

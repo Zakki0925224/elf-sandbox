@@ -2,5 +2,20 @@
 description = "Run"
 script = ['''
 cargo build
+sudo brctl addbr lxcbr0
+sudo brctl addif lxcbr0 enp4s0
+sudo ip link set up dev lxcbr0
+sudo dhclient -v lxcbr0
+export DOWNLOAD_KEYSERVER="hkp://keyserver.ubuntu.com"
 sudo ./target/debug/elf-sandbox
+sudo ip link set up dev lxcbr0 down
+sudo brctl delbr lxcbr0
+''']
+
+[tasks.destroy-container]
+description = "Destroy container"
+script = ['''
+sudo ip link set up dev lxcbr0 down
+sudo brctl delbr lxcbr0
+sudo lxc-destroy sandbox
 ''']

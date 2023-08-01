@@ -78,22 +78,22 @@ fn main() {
         )
         .expect("Failed to create container rootfs");
 
-    // fs::copy(
-    //     "./sysmon-setup.sh",
-    //     format!(
-    //         "{}/{}/rootfs/root/sysmon-setup.sh",
-    //         lxc::get_global_config_item("lxc.lxcpath").unwrap(),
-    //         container_name
-    //     ),
-    // )
-    // .expect("Failed to copy a file");
+    fs::copy(
+        "./sysmon-setup.sh",
+        format!(
+            "{}/{}/rootfs/root/sysmon-setup.sh",
+            lxc::get_global_config_item("lxc.lxcpath").unwrap(),
+            container_name
+        ),
+    )
+    .expect("Failed to copy a file");
 
     println!("Starting container...");
     container
         .start(false, &[])
         .expect("Failed to start the container");
 
-    //run_command(&container, "/usr/bin/bash ./sysmon-setup.sh");
+    run_command(&container, "/usr/bin/bash ./sysmon-setup.sh");
 
     println!("Stopping container...");
     container.stop().expect("Failed to kill the container.");

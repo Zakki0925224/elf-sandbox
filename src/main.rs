@@ -1,8 +1,13 @@
 use std::{env, fs, os::fd::AsRawFd};
 
+use clap::Parser;
 use lxc::{attach::Options, Container};
 use lxc_sys::lxc_groups_t;
 use sudo::RunningAs;
+
+use crate::args::Arguments;
+
+mod args;
 
 fn gen_attach_options() -> Options {
     let options = Options {
@@ -37,7 +42,7 @@ fn run_command(container: &Container, command: &str) {
     let result = container.attach_run_wait(&mut gen_attach_options(), prog, &splitted);
 
     match result {
-        Err(e) => println!("Error: {}", e),
+        Err(e) => eprintln!("Error: {}", e),
         Ok(s) => println!("Ok, waitpid status={}", s),
     }
 }
@@ -48,16 +53,27 @@ fn main() {
         _ => panic!("You must be run as sudo"),
     }
 
+    let args = Arguments::parse();
+
     let container_name = "sandbox";
     let distoribution = "ubuntu";
     let release = "jammy";
     let arch = "amd64";
+    let lxc_path = lxc::get_global_config_item("lxc.lxcpath").unwrap();
+
+    let log = lxc::Log {
+        name: "sndbox".to_string(),
+        lxcpath: lxc_path.clone(),
+        file: "sandbox.log".to_string(),
+        level: lxc::log::Level::Debug,
+        prefix: "".to_string(),
+        quiet: false,
+    };
+
+    log.init().expect("Failed to initialize log");
 
     println!("LXC version: {}", lxc::version());
-    println!(
-        "LXC path: {}",
-        lxc::get_global_config_item("lxc.lxcpath").unwrap()
-    );
+    println!("LXC path: {}", lxc_path);
     println!("Current path: {}", env::current_dir().unwrap().display());
 
     let container =
@@ -80,11 +96,7 @@ fn main() {
 
     fs::copy(
         "./sysmon-setup.sh",
-        format!(
-            "{}/{}/rootfs/root/sysmon-setup.sh",
-            lxc::get_global_config_item("lxc.lxcpath").unwrap(),
-            container_name
-        ),
+        format!("{}/{}/rootfs/sysmon-setup.sh", lxc_path, container_name),
     )
     .expect("Failed to copy a file");
 
@@ -93,13 +105,26 @@ fn main() {
         .start(false, &[])
         .expect("Failed to start the container");
 
-    run_command(&container, "/usr/bin/bash ./sysmon-setup.sh");
+    run_command(&container, "chmod 100 ./sysmon-setup.sh");
+    run_command(&container, "./sysmon-setup.sh");
 
-    println!("Stopping container...");
-    container.stop().expect("Failed to kill the container.");
+    fs::copy(
+        args.target_elf_path,
+        format!("{}/{}/rootfs/target", lxc_path, container_name),
+    )
+    .expect("Failed to copy a file");
+
+    run_command(&container, "./target");
+
+    if container.shutdown(30).is_err() {
+        println!("Failed to cleanly shutdown the container, forcing.");
+        container.stop().expect("Failed to kill the container.");
+    }
 
     println!("Destoroying container...");
     container
         .destroy()
         .expect("Failed to destroy the container.");
+
+    lxc::Log::close();
 }

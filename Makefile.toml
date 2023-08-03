@@ -6,7 +6,23 @@ sudo brctl addbr lxcbr0
 sudo brctl addif lxcbr0 enp4s0
 sudo ip link set up dev lxcbr0
 sudo dhclient -v lxcbr0
-sudo ./target/debug/elf-sandbox
+sudo ./target/debug/elf-sandbox --target-elf-path /usr/bin/uname
+sudo ip link set up dev lxcbr0 down
+sudo brctl delbr lxcbr0
+''']
+
+[tasks.sandbox-test]
+description = "Test"
+script = ['''
+sudo brctl addbr lxcbr0
+sudo brctl addif lxcbr0 enp4s0
+sudo ip link set up dev lxcbr0
+sudo dhclient -v lxcbr0
+sudo lxc-create -t download -n sandbox -- -d ubuntu -r focal -a amd64
+sudo lxc-start sandbox
+sudo lxc-attach -n sandbox -- /bin/bash
+sudo lxc-stop sandbox
+sudo lxc-destroy sandbox
 sudo ip link set up dev lxcbr0 down
 sudo brctl delbr lxcbr0
 ''']

@@ -15,7 +15,7 @@ sudo brctl delbr lxcbr0
 description = "Test"
 script = ['''
 sudo brctl addbr lxcbr0
-sudo brctl addif lxcbr0 $(ls $(find /sys/devices -name net | grep -v virtual))
+sudo brctl addif lxcbr0 $(ls $(find /sys/devices -name net | grep -v virtual | head -n 1))
 sudo ip link set up dev lxcbr0
 sudo dhclient -v lxcbr0
 sudo lxc-create -t download -n sandbox -- -d ubuntu -r focal -a amd64

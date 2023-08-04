@@ -94,32 +94,40 @@ fn main() {
         )
         .expect("Failed to create container rootfs");
 
-    fs::copy(
-        "./sysmon-setup.sh",
-        format!("{}/{}/rootfs/sysmon-setup.sh", lxc_path, container_name),
-    )
-    .expect("Failed to copy a file");
-
     println!("Starting container...");
     container
-        .start(false, &[])
+        .start(true, &[])
         .expect("Failed to start the container");
 
-    run_command(&container, "chmod 100 ./sysmon-setup.sh");
-    run_command(&container, "./sysmon-setup.sh");
+    println!("Container state: {}", container.state());
+    println!("Container PID: {}", container.init_pid());
+    println!("Interfaces: {:?}", container.get_interfaces());
 
-    fs::copy(
-        args.target_elf_path,
-        format!("{}/{}/rootfs/target", lxc_path, container_name),
-    )
-    .expect("Failed to copy a file");
+    // fs::copy(
+    //     "./sysmon-setup.sh",
+    //     format!("{}/{}/rootfs/sysmon-setup.sh", lxc_path, container_name),
+    // )
+    // .expect("Failed to copy a file");
 
-    run_command(&container, "./target");
+    // run_command(&container, "chmod 100 ./sysmon-setup.sh");
+    // run_command(&container, "./sysmon-setup.sh");
 
-    if container.shutdown(30).is_err() {
-        println!("Failed to cleanly shutdown the container, forcing.");
-        container.stop().expect("Failed to kill the container.");
-    }
+    // fs::copy(
+    //     args.target_elf_path,
+    //     format!("{}/{}/rootfs/target", lxc_path, container_name),
+    // )
+    // .expect("Failed to copy a file");
+
+    // run_command(&container, "./target");
+    run_command(&container, "uname -a");
+
+    // if container.shutdown(30).is_err() {
+    //     println!("Failed to cleanly shutdown the container, forcing.");
+    //     container.stop().expect("Failed to kill the container.");
+    // }
+
+    println!("Stopping container...");
+    container.stop().expect("Failed to kill the container.");
 
     println!("Destoroying container...");
     container

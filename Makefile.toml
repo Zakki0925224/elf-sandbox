@@ -5,7 +5,6 @@ cargo build
 sudo lxc network create lxcbr0
 sudo ./target/debug/elf-sandbox --target-elf-path /usr/bin/uname
 sudo lxc network delete lxcbr0
-
 ''']
 
 [tasks.sandbox-test]

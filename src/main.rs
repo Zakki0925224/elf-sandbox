@@ -34,11 +34,82 @@ fn gen_attach_options() -> Options {
     return options;
 }
 
+fn wait_container(container: &Container, state: &str) {
+    println!("Waiting the container...");
+    container.wait(state, 10).expect("Timed out");
+}
+
+fn create_container(
+    container_name: &str,
+    distoribution: &str,
+    release: &str,
+    arch: &str,
+) -> Container {
+    let container =
+        lxc::Container::new(container_name, None).expect("Failed to setup lxc_container struct");
+
+    if container.is_defined() {
+        panic!("The container already exists");
+    }
+
+    println!(
+        "Creating the container ({}-{}-{})...",
+        distoribution, release, arch
+    );
+    container
+        .create(
+            "download",
+            None,
+            None,
+            ::lxc::CreateFlags::QUIET,
+            &["-d", distoribution, "-r", release, "-a", arch],
+        )
+        .expect("Failed to create the container rootfs");
+
+    return container;
+}
+
+fn start_container(container: &Container) {
+    container
+        .set_config_item("lxc.cgroup.memory.limit_in_bytes", "256MB")
+        .expect("Failed to set config");
+
+    println!("Starting the container...");
+    container
+        .start(true, &[])
+        .expect("Failed to start the container");
+
+    wait_container(&container, "RUNNING");
+
+    if container.state() != "RUNNING" {
+        panic!("The container state is not RUNNING");
+    }
+}
+
+fn stop_container(container: &Container) {
+    println!("Stopping the container...");
+    container.stop().expect("Failed to kill the container.");
+    wait_container(container, "STOPPED");
+}
+
+fn destroy_container(container: &Container) {
+    println!("Destoroying the container...");
+    container
+        .destroy()
+        .expect("Failed to destroy the container.");
+}
+
 fn run_command(container: &Container, command: &str) {
+    if container.state() == "STOPPED" {
+        println!("Skipping run a command...");
+    }
+
+    wait_container(container, "RUNNING");
+
     let splitted: Vec<&str> = command.split(" ").collect();
     let prog = splitted[0];
 
-    println!("Running command: \"{}\"...", command);
+    println!("Running a command: \"{}\"...", command);
     let result = container.attach_run_wait(&mut gen_attach_options(), prog, &splitted);
 
     match result {
@@ -76,32 +147,12 @@ fn main() {
     println!("LXC path: {}", lxc_path);
     println!("Current path: {}", env::current_dir().unwrap().display());
 
-    let container =
-        lxc::Container::new(container_name, None).expect("Failed to setup lxc_container struct");
+    let container = create_container(container_name, distoribution, release, arch);
+    start_container(&container);
 
-    if container.is_defined() {
-        panic!("Container already exists");
-    }
-
-    println!("Creating container...");
-    container
-        .create(
-            "download",
-            None,
-            None,
-            ::lxc::CreateFlags::QUIET,
-            &["-d", distoribution, "-r", release, "-a", arch],
-        )
-        .expect("Failed to create container rootfs");
-
-    println!("Starting container...");
-    container
-        .start(true, &[])
-        .expect("Failed to start the container");
-
-    println!("Container state: {}", container.state());
-    println!("Container PID: {}", container.init_pid());
-    println!("Interfaces: {:?}", container.get_interfaces());
+    // println!("Container state: {}", container.state());
+    // println!("Container PID: {}", container.init_pid());
+    // println!("Interfaces: {:?}", container.get_interfaces());
 
     // fs::copy(
     //     "./sysmon-setup.sh",
@@ -119,20 +170,16 @@ fn main() {
     // .expect("Failed to copy a file");
 
     // run_command(&container, "./target");
-    run_command(&container, "uname -a");
+    run_command(&container, "id");
+    run_command(&container, "id");
 
     // if container.shutdown(30).is_err() {
     //     println!("Failed to cleanly shutdown the container, forcing.");
     //     container.stop().expect("Failed to kill the container.");
     // }
 
-    println!("Stopping container...");
-    container.stop().expect("Failed to kill the container.");
-
-    println!("Destoroying container...");
-    container
-        .destroy()
-        .expect("Failed to destroy the container.");
+    stop_container(&container);
+    destroy_container(&container);
 
     lxc::Log::close();
 }

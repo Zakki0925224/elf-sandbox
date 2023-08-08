@@ -26,15 +26,14 @@ fn main() {
         release.to_string(),
         arch.to_string(),
         args.timeout,
+        args.setup_sh_path,
+        args.target_elf_path,
     );
-
-    println!("{:?}", container);
 
     container.create();
     container.start();
-    container.attach("ls hoge");
-    container.attach("/bin/uname -a");
-    container.attach("/usr/bin/bash");
+    container.execute_target();
+    container.attach("uname -a");
     container.stop();
     container.destroy();
 }

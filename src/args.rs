@@ -4,6 +4,8 @@ use clap::Parser;
 #[command(author, version, about, long_about = None)]
 pub struct Arguments {
     #[arg(long)]
+    pub setup_sh_path: String,
+    #[arg(long)]
     pub target_elf_path: String,
     #[arg(long)]
     pub timeout: u64,

@@ -1,6 +1,16 @@
-use std::{process::Command, time::Duration};
+use std::{
+    env,
+    fs::{self, OpenOptions},
+    io::Write,
+    process::Command,
+    time::Duration,
+};
 
 use wait_timeout::ChildExt;
+
+const SEND_DIR_NAME: &str = "send";
+const SETUP_SH_FILE_NAME: &str = "setup.sh";
+const TARGET_ELF_FILE_NAME: &str = "target.elf";
 
 enum CommandResult {
     Ok,
@@ -23,6 +33,8 @@ pub struct Container {
     arch: String,
     state: ContainerState,
     timeout: u64,
+    setup_sh_path: String,
+    target_elf_path: String,
 }
 
 impl Container {
@@ -32,6 +44,8 @@ impl Container {
         release: String,
         arch: String,
         timeout: u64,
+        setup_sh_path: String,
+        target_elf_path: String,
     ) -> Self {
         return Self {
             container_name,
@@ -40,11 +54,9 @@ impl Container {
             arch,
             state: ContainerState::NotExist,
             timeout,
+            setup_sh_path,
+            target_elf_path,
         };
-    }
-
-    pub fn state(&self) -> ContainerState {
-        return self.state;
     }
 
     pub fn create(&mut self) {
@@ -55,6 +67,9 @@ impl Container {
                 return;
             }
         }
+
+        println!("Creating sender pack...");
+        self.create_send_pack();
 
         println!(
             "Creating container ({}-{}-{})...",
@@ -92,11 +107,33 @@ impl Container {
     pub fn start(&mut self) {
         match self.state {
             ContainerState::Created | ContainerState::Stopped => (),
-            _ => {
-                println!("TODO");
+            ContainerState::NotExist => {
+                println!("Container is not exist");
+                return;
+            }
+            ContainerState::Running => {
+                println!("Container is running");
                 return;
             }
         }
+
+        // set config
+        let mut config = OpenOptions::new()
+            .append(true)
+            .open(format!("/var/lib/lxc/{}/config", self.container_name))
+            .expect("Failed to open config file");
+
+        config
+            .write_all(
+                format!(
+                    "lxc.mount.entry = {}/{} mnt/{} none bind,create=dir 0 0",
+                    env::current_dir().unwrap().display(),
+                    SEND_DIR_NAME,
+                    SEND_DIR_NAME
+                )
+                .as_bytes(),
+            )
+            .unwrap();
 
         println!("Starting container...");
 
@@ -109,9 +146,17 @@ impl Container {
                 panic!("Failed to start container");
             }
         }
+
+        println!("Running setup script...");
+        self.attach(&format!("chmod -R 100 /mnt/{}", SEND_DIR_NAME));
+        self.attach(&format!("sh /mnt/{}/{}", SEND_DIR_NAME, SETUP_SH_FILE_NAME));
     }
 
-    pub fn attach(&self, command: &str) {
+    pub fn execute_target(&mut self) {
+        self.attach(&format!("/mnt/{}/{}", SEND_DIR_NAME, TARGET_ELF_FILE_NAME));
+    }
+
+    pub fn attach(&mut self, command: &str) {
         match self.state {
             ContainerState::Running => (),
             _ => {
@@ -122,13 +167,14 @@ impl Container {
 
         println!("Attaching with \"{}\"...", command);
 
-        match self.exec_command(
-            "sudo",
-            &["lxc-attach", "-n", &self.container_name, "--", command],
-        ) {
+        let mut args = vec!["lxc-attach", "-n", &self.container_name, "--"];
+        args.extend(command.split(" "));
+
+        match self.exec_command("sudo", &args) {
             CommandResult::Ok => (),
             CommandResult::Err => {
                 // TODO: destroy container
+                self.stop();
                 return;
             }
         }
@@ -178,22 +224,13 @@ impl Container {
                 println!("Failed to destroy container");
             }
         }
+
+        self.remove_send_pack();
     }
 
     fn exec_command(&self, program: &str, args: &[&str]) -> CommandResult {
-        // let output_result = Command::new(program).args(args).output().unwrap();
-
-        // let dur = Duration::new(self.ti)
-        // Command::new(program).args(args).spawn().unwrap().wait_timeout(dur)
-
-        // return match output_result.status.success() {
-        //     true => CommandResult::Ok(String::from_utf8_lossy(&output_result.stdout).to_string()),
-        //     false => CommandResult::Err(String::from_utf8_lossy(&output_result.stderr).to_string()),
-        // };
-
         let mut child = Command::new(program).args(args).spawn().unwrap();
 
-        // TODO: timeout unwrap
         let status_code = match child
             .wait_timeout(Duration::from_secs(self.timeout))
             .unwrap()
@@ -216,5 +253,34 @@ impl Container {
             }
             None => CommandResult::Err,
         };
+    }
+
+    fn create_send_pack(&self) {
+        match fs::create_dir(SEND_DIR_NAME) {
+            Ok(()) => (),
+            Err(_) => {
+                // regenerate
+                fs::remove_dir_all(SEND_DIR_NAME).unwrap();
+                fs::create_dir(SEND_DIR_NAME).unwrap();
+            }
+        }
+
+        // setup sh
+        fs::copy(
+            &self.setup_sh_path,
+            format!("{}/{}", SEND_DIR_NAME, SETUP_SH_FILE_NAME),
+        )
+        .expect("Failed to copy a file");
+
+        // target elf
+        fs::copy(
+            &self.target_elf_path,
+            format!("{}/{}", SEND_DIR_NAME, TARGET_ELF_FILE_NAME),
+        )
+        .expect("Failed to copy a file");
+    }
+
+    fn remove_send_pack(&self) {
+        fs::remove_dir_all(SEND_DIR_NAME).expect("Failed to remove a directory");
     }
 }

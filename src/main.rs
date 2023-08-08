@@ -9,8 +9,8 @@ mod container;
 
 fn main() {
     match sudo::check() {
-        RunningAs::Root => (),
-        _ => panic!("You must be run as sudo"),
+        RunningAs::Root => panic!("You must not be run as sudo"),
+        _ => (),
     }
 
     let args = Arguments::parse();
@@ -28,7 +28,6 @@ fn main() {
         args.timeout,
         args.setup_sh_path,
         args.target_elf_path,
-        args.username,
     );
 
     container.create();

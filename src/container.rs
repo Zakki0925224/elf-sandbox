@@ -2,7 +2,7 @@ use std::{
     env,
     fs::{self, OpenOptions},
     io::Write,
-    process::{Command, Stdio},
+    process::{Command},
     time::Duration,
 };
 
@@ -35,7 +35,6 @@ pub struct Container {
     timeout: u64,
     setup_sh_path: String,
     target_elf_path: String,
-    username: String,
 }
 
 impl Container {
@@ -47,7 +46,6 @@ impl Container {
         timeout: u64,
         setup_sh_path: String,
         target_elf_path: String,
-        username: String,
     ) -> Self {
         return Self {
             container_name,
@@ -58,7 +56,6 @@ impl Container {
             timeout,
             setup_sh_path,
             target_elf_path,
-            username,
         };
     }
 
@@ -74,49 +71,6 @@ impl Container {
         println!("Creating sender pack...");
         self.create_send_pack();
 
-        // -----------------
-        fs::write(
-            "/etc/lxc/lxc-usernet",
-            format!("{} veth lxcbr0 10", self.username),
-        )
-        .expect("Failed to write to a file");
-
-        Command::new("mkdir")
-            .args(&["-p", &format!("/home/{}/.config/lxc", self.username)])
-            .spawn()
-            .unwrap();
-
-        Command::new("sudo").args(&[
-            "chmod",
-            "777",
-            &format!("/home/{}/.config/lxc", self.username),
-        ]);
-
-        fs::copy(
-            "/etc/lxc/default.conf",
-            format!("/home/{}/.config/lxc/default.conf", self.username),
-        )
-        .unwrap();
-
-        fs::write(
-            format!("/home/{}/.config/lxc/default.conf", self.username),
-            &fs::read("/etc/lxc/default.conf").unwrap(),
-        )
-        .expect("Failed to write a file");
-
-        let subuid = format!("{}:100000:65536", self.username);
-        let subgid = format!("{}:100000:65536", self.username);
-        fs::write("/etc/subuid", subuid).expect("Failed to write to a file");
-        fs::write("/etc/subgid", subgid).expect("Failed to write to a file");
-
-        OpenOptions::new()
-            .append(true)
-            .open(format!("/home/{}/.config/lxc/default.conf", self.username))
-            .expect("Failed to open config file")
-            .write_all("lxc.idmap = u 0 100000 65536\nlxc.idmap = g 0 100000 65536".as_bytes())
-            .unwrap();
-        // -----------------
-
         println!(
             "Creating container ({}-{}-{})...",
             self.distribution, self.release, self.arch
@@ -129,7 +83,7 @@ impl Container {
                 "--user",
                 "--scope",
                 "-p",
-                "\"Delegate=yes\"",
+                "Delegate=yes",
                 "--",
                 "lxc-create",
                 "-t",
@@ -171,7 +125,7 @@ impl Container {
         // set config
         let mut config = OpenOptions::new()
             .append(true)
-            .open(format!("~/.config/lxc/{}/config", self.container_name))
+            .open(format!("{}/.local/share/lxc/{}/config", env::home_dir().unwrap().display(), self.container_name))
             .expect("Failed to open config file");
 
         config
@@ -199,7 +153,6 @@ impl Container {
         }
 
         println!("Running setup script...");
-        self.attach(&format!("chmod -R 100 /mnt/{}", SEND_DIR_NAME));
         self.attach(&format!("sh /mnt/{}/{}", SEND_DIR_NAME, SETUP_SH_FILE_NAME));
     }
 

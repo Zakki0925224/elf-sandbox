@@ -28,6 +28,7 @@ fn main() {
         args.timeout,
         args.setup_sh_path,
         args.target_elf_path,
+        args.username,
     );
 
     container.create();

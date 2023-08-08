@@ -2,7 +2,7 @@ use std::{
     env,
     fs::{self, OpenOptions},
     io::Write,
-    process::Command,
+    process::{Command, Stdio},
     time::Duration,
 };
 
@@ -35,6 +35,7 @@ pub struct Container {
     timeout: u64,
     setup_sh_path: String,
     target_elf_path: String,
+    username: String,
 }
 
 impl Container {
@@ -46,6 +47,7 @@ impl Container {
         timeout: u64,
         setup_sh_path: String,
         target_elf_path: String,
+        username: String,
     ) -> Self {
         return Self {
             container_name,
@@ -56,6 +58,7 @@ impl Container {
             timeout,
             setup_sh_path,
             target_elf_path,
+            username,
         };
     }
 
@@ -71,14 +74,63 @@ impl Container {
         println!("Creating sender pack...");
         self.create_send_pack();
 
+        // -----------------
+        fs::write(
+            "/etc/lxc/lxc-usernet",
+            format!("{} veth lxcbr0 10", self.username),
+        )
+        .expect("Failed to write to a file");
+
+        Command::new("mkdir")
+            .args(&["-p", &format!("/home/{}/.config/lxc", self.username)])
+            .spawn()
+            .unwrap();
+
+        Command::new("sudo").args(&[
+            "chmod",
+            "777",
+            &format!("/home/{}/.config/lxc", self.username),
+        ]);
+
+        fs::copy(
+            "/etc/lxc/default.conf",
+            format!("/home/{}/.config/lxc/default.conf", self.username),
+        )
+        .unwrap();
+
+        fs::write(
+            format!("/home/{}/.config/lxc/default.conf", self.username),
+            &fs::read("/etc/lxc/default.conf").unwrap(),
+        )
+        .expect("Failed to write a file");
+
+        let subuid = format!("{}:100000:65536", self.username);
+        let subgid = format!("{}:100000:65536", self.username);
+        fs::write("/etc/subuid", subuid).expect("Failed to write to a file");
+        fs::write("/etc/subgid", subgid).expect("Failed to write to a file");
+
+        OpenOptions::new()
+            .append(true)
+            .open(format!("/home/{}/.config/lxc/default.conf", self.username))
+            .expect("Failed to open config file")
+            .write_all("lxc.idmap = u 0 100000 65536\nlxc.idmap = g 0 100000 65536".as_bytes())
+            .unwrap();
+        // -----------------
+
         println!(
             "Creating container ({}-{}-{})...",
             self.distribution, self.release, self.arch
         );
 
         match self.exec_command(
-            "sudo",
+            "systemd-run",
             &[
+                "--unit=my-unit",
+                "--user",
+                "--scope",
+                "-p",
+                "\"Delegate=yes\"",
+                "--",
                 "lxc-create",
                 "-t",
                 "download",
@@ -119,7 +171,7 @@ impl Container {
         // set config
         let mut config = OpenOptions::new()
             .append(true)
-            .open(format!("/var/lib/lxc/{}/config", self.container_name))
+            .open(format!("~/.config/lxc/{}/config", self.container_name))
             .expect("Failed to open config file");
 
         config
@@ -136,7 +188,7 @@ impl Container {
 
         println!("Starting container...");
 
-        match self.exec_command("sudo", &["lxc-start", "-n", &self.container_name]) {
+        match self.exec_command("lxc-start", &["-n", &self.container_name]) {
             CommandResult::Ok => {
                 println!("Started container!");
                 self.state = ContainerState::Running;
@@ -166,10 +218,10 @@ impl Container {
 
         println!("Attaching with \"{}\"...", command);
 
-        let mut args = vec!["lxc-attach", "-n", &self.container_name, "--"];
+        let mut args = vec!["-n", &self.container_name, "--"];
         args.extend(command.split(" "));
 
-        match self.exec_command("sudo", &args) {
+        match self.exec_command("lxc-attach", &args) {
             CommandResult::Ok => (),
             CommandResult::Err => {
                 // TODO: destroy container
@@ -192,7 +244,7 @@ impl Container {
 
         println!("Stopping container...");
 
-        match self.exec_command("sudo", &["lxc-stop", "-n", &self.container_name]) {
+        match self.exec_command("lxc-stop", &["-n", &self.container_name]) {
             CommandResult::Ok => {
                 println!("Stopped container!");
                 self.state = ContainerState::Stopped;
@@ -214,7 +266,7 @@ impl Container {
 
         println!("Destroying container...");
 
-        match self.exec_command("sudo", &["lxc-destroy", "-n", &self.container_name]) {
+        match self.exec_command("lxc-destroy", &["-n", &self.container_name]) {
             CommandResult::Ok => {
                 println!("Destroyed container!");
                 self.state = ContainerState::NotExist;

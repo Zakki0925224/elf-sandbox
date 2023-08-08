@@ -9,4 +9,6 @@ pub struct Arguments {
     pub target_elf_path: String,
     #[arg(long)]
     pub timeout: u64,
+    #[arg(long)]
+    pub username: String,
 }

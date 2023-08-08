@@ -14,11 +14,6 @@ fn main() {
     }
 
     let args = Arguments::parse();
-    let timeout = if args.timeout > 0 {
-        Some(args.timeout)
-    } else {
-        None
-    };
 
     let container_name = "sandbox";
     let distribution = "ubuntu";
@@ -30,7 +25,7 @@ fn main() {
         distribution.to_string(),
         release.to_string(),
         arch.to_string(),
-        timeout,
+        args.timeout,
     );
 
     println!("{:?}", container);
@@ -38,6 +33,8 @@ fn main() {
     container.create();
     container.start();
     container.attach("ls hoge");
+    container.attach("/bin/uname -a");
+    container.attach("/usr/bin/bash");
     container.stop();
     container.destroy();
 }

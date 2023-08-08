@@ -3,18 +3,6 @@ description = "Run"
 script = ['''
 cargo build
 sudo lxc network create lxcbr0
-sudo ./target/debug/elf-sandbox --target-elf-path /usr/bin/uname --timeout 0
+sudo ./target/debug/elf-sandbox --target-elf-path /usr/bin/uname --timeout 10
 sudo lxc network delete lxcbr0
 ''']
-
-# [tasks.sandbox-test]
-# description = "Test"
-# script = ['''
-# sudo lxc network create lxcbr0
-# sudo lxc-create -t download -n sandbox -- -d ubuntu -r focal -a amd64
-# sudo lxc-start sandbox
-# sudo lxc-attach -n sandbox -- /bin/bash
-# sudo lxc-stop sandbox
-# sudo lxc-destroy sandbox
-# sudo lxc network delete lxcbr0
-# ''']

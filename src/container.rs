@@ -1,8 +1,10 @@
-use std::process::Command;
+use std::{process::Command, time::Duration};
+
+use wait_timeout::ChildExt;
 
 enum CommandResult {
-    Ok(String),
-    Err(String),
+    Ok,
+    Err,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -20,7 +22,7 @@ pub struct Container {
     release: String,
     arch: String,
     state: ContainerState,
-    timeout: Option<u32>,
+    timeout: u64,
 }
 
 impl Container {
@@ -29,7 +31,7 @@ impl Container {
         distribution: String,
         release: String,
         arch: String,
-        timeout: Option<u32>,
+        timeout: u64,
     ) -> Self {
         return Self {
             container_name,
@@ -77,12 +79,11 @@ impl Container {
                 &self.arch,
             ],
         ) {
-            CommandResult::Ok(_) => {
+            CommandResult::Ok => {
                 println!("Created container!");
                 self.state = ContainerState::Created;
             }
-            CommandResult::Err(stderr) => {
-                println!("{}", stderr);
+            CommandResult::Err => {
                 panic!("Failed to create container");
             }
         }
@@ -100,12 +101,11 @@ impl Container {
         println!("Starting container...");
 
         match self.exec_command("sudo", &["lxc-start", "-n", &self.container_name]) {
-            CommandResult::Ok(_) => {
+            CommandResult::Ok => {
                 println!("Started container!");
                 self.state = ContainerState::Running;
             }
-            CommandResult::Err(stderr) => {
-                println!("{}", stderr);
+            CommandResult::Err => {
                 panic!("Failed to start container");
             }
         }
@@ -126,11 +126,8 @@ impl Container {
             "sudo",
             &["lxc-attach", "-n", &self.container_name, "--", command],
         ) {
-            CommandResult::Ok(stdout) => {
-                println!("{}", stdout);
-            }
-            CommandResult::Err(stderr) => {
-                println!("{}", stderr);
+            CommandResult::Ok => (),
+            CommandResult::Err => {
                 // TODO: destroy container
                 return;
             }
@@ -151,13 +148,12 @@ impl Container {
         println!("Stopping container...");
 
         match self.exec_command("sudo", &["lxc-stop", "-n", &self.container_name]) {
-            CommandResult::Ok(_) => {
+            CommandResult::Ok => {
                 println!("Stopped container!");
                 self.state = ContainerState::Stopped;
             }
-            CommandResult::Err(stderr) => {
-                println!("{}", stderr);
-                panic!("Failed to stop container");
+            CommandResult::Err => {
+                println!("Failed to stop container");
             }
         }
     }
@@ -174,23 +170,51 @@ impl Container {
         println!("Destroying container...");
 
         match self.exec_command("sudo", &["lxc-destroy", "-n", &self.container_name]) {
-            CommandResult::Ok(_) => {
+            CommandResult::Ok => {
                 println!("Destroyed container!");
                 self.state = ContainerState::NotExist;
             }
-            CommandResult::Err(stderr) => {
-                println!("{}", stderr);
-                panic!("Failed to destroy container");
+            CommandResult::Err => {
+                println!("Failed to destroy container");
             }
         }
     }
 
     fn exec_command(&self, program: &str, args: &[&str]) -> CommandResult {
-        let output_result = Command::new(program).args(args).output().unwrap();
+        // let output_result = Command::new(program).args(args).output().unwrap();
 
-        return match output_result.status.success() {
-            true => CommandResult::Ok(String::from_utf8_lossy(&output_result.stdout).to_string()),
-            false => CommandResult::Err(String::from_utf8_lossy(&output_result.stderr).to_string()),
+        // let dur = Duration::new(self.ti)
+        // Command::new(program).args(args).spawn().unwrap().wait_timeout(dur)
+
+        // return match output_result.status.success() {
+        //     true => CommandResult::Ok(String::from_utf8_lossy(&output_result.stdout).to_string()),
+        //     false => CommandResult::Err(String::from_utf8_lossy(&output_result.stderr).to_string()),
+        // };
+
+        let mut child = Command::new(program).args(args).spawn().unwrap();
+
+        // TODO: timeout unwrap
+        let status_code = match child
+            .wait_timeout(Duration::from_secs(self.timeout))
+            .unwrap()
+        {
+            Some(status) => status.code(),
+            None => {
+                println!("Timed out {} secs", self.timeout);
+                child.kill().unwrap();
+                child.wait().unwrap().code()
+            }
+        };
+
+        return match status_code {
+            Some(code) => {
+                if code == 0 {
+                    CommandResult::Ok
+                } else {
+                    CommandResult::Err
+                }
+            }
+            None => CommandResult::Err,
         };
     }
 }

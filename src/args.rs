@@ -6,5 +6,5 @@ pub struct Arguments {
     #[arg(long)]
     pub target_elf_path: String,
     #[arg(long)]
-    pub timeout: u32,
+    pub timeout: u64,
 }

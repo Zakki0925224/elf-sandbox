@@ -79,7 +79,6 @@ impl Container {
         match self.exec_command(
             "sudo",
             &[
-                "sudo",
                 "lxc-create",
                 "-t",
                 "download",

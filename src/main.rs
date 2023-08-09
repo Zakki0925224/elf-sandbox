@@ -1,11 +1,13 @@
+use analyzer::Analyzer;
 use clap::Parser;
-use container::Container;
 use sudo::RunningAs;
 
 use crate::args::Arguments;
 
+mod analyzer;
 mod args;
 mod container;
+mod mount_entry;
 
 fn main() {
     match sudo::check() {
@@ -20,7 +22,7 @@ fn main() {
     let release = "jammy";
     let arch = "amd64";
 
-    let mut container = Container::new(
+    let mut analyzer = Analyzer::new(
         container_name.to_string(),
         distribution.to_string(),
         release.to_string(),
@@ -28,13 +30,8 @@ fn main() {
         args.timeout,
         args.setup_sh_path,
         args.target_elf_path,
+        args.mount_dir_path,
     );
 
-    container.create();
-    container.start();
-    container.execute_target();
-    //container.attach("bash");
-    container.stop();
-    container.analyze_syslog();
-    container.destroy();
+    analyzer.analyze();
 }

@@ -8,5 +8,7 @@ pub struct Arguments {
     #[arg(long)]
     pub target_elf_path: String,
     #[arg(long)]
+    pub mount_dir_path: String,
+    #[arg(long)]
     pub timeout: u64,
 }

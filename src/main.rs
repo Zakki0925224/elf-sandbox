@@ -33,7 +33,8 @@ fn main() {
     container.create();
     container.start();
     container.execute_target();
-    container.attach("bash");
+    //container.attach("bash");
     container.stop();
+    container.analyze_syslog();
     container.destroy();
 }

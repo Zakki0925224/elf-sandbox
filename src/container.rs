@@ -1,7 +1,7 @@
 use std::{
     env,
-    fs::{self, OpenOptions},
-    io::Write,
+    fs::{self, OpenOptions, File},
+    io::{Read, Write},
     process::Command,
     time::Duration,
 };
@@ -147,12 +147,15 @@ impl Container {
         }
 
         println!("Running setup script...");
-        self.attach(&format!("chmod -R 100 /mnt/{}", SEND_DIR_NAME));
         self.attach(&format!("sh /mnt/{}/{}", SEND_DIR_NAME, SETUP_SH_FILE_NAME));
     }
 
     pub fn execute_target(&mut self) {
-        self.attach(&format!("/mnt/{}/{}", SEND_DIR_NAME, TARGET_ELF_FILE_NAME));
+        // TODO
+        self.attach(&format!("cp /mnt/{}/{} /root/{}", SEND_DIR_NAME, TARGET_ELF_FILE_NAME, TARGET_ELF_FILE_NAME));
+        self.attach("cd /root");
+        self.attach("ls");
+        self.attach(&format!("/root/{}", TARGET_ELF_FILE_NAME));
     }
 
     pub fn attach(&mut self, command: &str) {
@@ -190,6 +193,9 @@ impl Container {
             }
         }
 
+        // copy syslog
+        self.attach(&format!("cp /var/log/syslog /mnt/{}/syslog", SEND_DIR_NAME));
+
         println!("Stopping container...");
 
         match self.exec_command("sudo", &["lxc-stop", "-n", &self.container_name]) {
@@ -225,6 +231,22 @@ impl Container {
         }
 
         self.remove_send_pack();
+    }
+
+    pub fn analyze_syslog(&self) {
+        match self.state {
+            ContainerState::Stopped => (),
+            _ => {
+                println!("Container is not stopping");
+                return;
+            }
+        }
+
+
+        let mut syslog = File::open(format!("./{}/syslog", SEND_DIR_NAME)).expect("Failed to open syslog");
+        let mut buf = Vec::new();
+        let _ = syslog.read_to_end(&mut buf).unwrap();
+        println!("{:?}", buf);
     }
 
     fn exec_command(&self, program: &str, args: &[&str]) -> CommandResult {

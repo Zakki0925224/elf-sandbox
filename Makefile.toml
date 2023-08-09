@@ -2,5 +2,5 @@
 description = "Run"
 script = ['''
 cargo build
-sudo ./target/debug/elf-sandbox --setup-sh-path ./sysmon-setup.sh --target-elf-path /usr/bin/uname --timeout 60
+sudo ./target/debug/elf-sandbox --setup-sh-path ./setup.sh --target-elf-path /usr/bin/uname --timeout 60
 ''']

@@ -2,7 +2,5 @@
 description = "Run"
 script = ['''
 cargo build
-sudo lxc network create lxcbr0
-sudo ./target/debug/elf-sandbox --setup-sh-path ./sysmon-setup.sh --target-elf-path /usr/bin/bash --timeout 60
-sudo lxc network delete lxcbr0
+sudo ./target/debug/elf-sandbox --setup-sh-path ./sysmon-setup.sh --target-elf-path /usr/bin/uname --timeout 60
 ''']

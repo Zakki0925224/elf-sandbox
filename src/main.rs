@@ -33,7 +33,7 @@ fn main() {
     container.create();
     container.start();
     container.execute_target();
-    container.attach("uname -a");
+    container.attach("bash");
     container.stop();
     container.destroy();
 }

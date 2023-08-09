@@ -79,7 +79,6 @@ impl Container {
         match self.exec_command(
             "sudo",
             &[
-                "sudo",
                 "lxc-create",
                 "-t",
                 "download",
@@ -174,7 +173,7 @@ impl Container {
             CommandResult::Ok => (),
             CommandResult::Err => {
                 // TODO: destroy container
-                self.stop();
+                //self.stop();
                 return;
             }
         }

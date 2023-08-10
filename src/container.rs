@@ -157,6 +157,12 @@ impl Container {
 
     pub fn execute_target(&mut self) {
         self.attach(&format!(
+            "chmod +x {}/{}",
+            self.mount_root_path,
+            mount_entry::TARGET_ELF_FILE_NAME
+        ));
+
+        self.attach(&format!(
             "cp {}/{} /root/{}",
             self.mount_root_path,
             mount_entry::TARGET_ELF_FILE_NAME,

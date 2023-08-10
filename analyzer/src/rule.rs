@@ -8,6 +8,7 @@ pub enum Code {
     Wget,
     Chmod,
     Rm(Vec<String>),
+    FileDelete(String), // target
 }
 
 #[derive(Debug)]
@@ -108,6 +109,35 @@ pub fn rm_is(info: &Vec<DetectionInfo>, path: &str) -> bool {
         .iter()
         .find(|i| match &i.code {
             Code::Rm(args) => args.iter().find(|a| a.contains(path)).is_some(),
+            _ => false,
+        })
+        .is_some();
+}
+
+pub fn event_id_23(entries: &Vec<SyslogEntry>) -> Vec<DetectionInfo> {
+    let mut info = vec![];
+
+    for e in entries {
+        if e.sysmon_event.event_id == SysmonEventId::FILE_DELETE {
+            if let Some(target_file_name) = e.sysmon_event.event_data.get("TargetFilename") {
+                info.push(DetectionInfo {
+                    event_id: e.sysmon_event.event_id.clone(),
+                    time_created: e.sysmon_event.time_created,
+                    reason_for_detection: "File deleted".to_string(),
+                    code: Code::FileDelete(target_file_name.clone()),
+                });
+            }
+        }
+    }
+
+    return info;
+}
+
+pub fn file_deleted_at(info: &Vec<DetectionInfo>, path: &str) -> bool {
+    return info
+        .iter()
+        .find(|i| match &i.code {
+            Code::FileDelete(target) => target.contains(path),
             _ => false,
         })
         .is_some();

@@ -60,6 +60,7 @@ fn main() {
     }
 
     detection_info.extend(rule::rm(&syslog_entries));
+    detection_info.extend(rule::event_id_23(&syslog_entries));
 
     if rule::rm_is(&detection_info, "/var/log") || rule::rm_is(&detection_info, "~/.bash_history") {
         println!("Detected to remove log");
@@ -67,6 +68,10 @@ fn main() {
 
     if rule::wget_and_chmod(&detection_info) {
         println!("Detected creation of wget and chmod processes.");
+    }
+
+    if rule::file_deleted_at(&detection_info, "/root/") {
+        println!("Detected to delete file under /root");
     }
 
     println!("{:?}", detection_info);

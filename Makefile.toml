@@ -2,7 +2,7 @@
 description = "Run sandbox"
 script = ['''
 cargo build
-sudo ./target/debug/elf-sandbox --setup-sh-path ./setup.sh --target-elf-path ./samples12345/sample3.bash --timeout 60 --mount-dir-path $PWD/sandtmp
+sudo ./target/debug/elf-sandbox --setup-sh-path ./setup.sh --target-elf-path ./samples12345/sample4 --timeout 60 --mount-dir-path $PWD/sandtmp
 ''']
 
 [tasks.run-analyzer]
@@ -11,5 +11,5 @@ script = ['''
 cd ./analyzer
 cargo build
 cd ../
-sudo ./analyzer/target/debug/analyzer --target-root-dir $PWD/analysis_results/af4d398f-04c1-46ae-a345-7b742ecbc16a
+sudo ./analyzer/target/debug/analyzer --target-root-dir $PWD/analysis_results/20c18b91-db5c-4c4b-a0a1-b457f84ed464
 ''']

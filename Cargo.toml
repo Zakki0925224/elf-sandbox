@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+common = { path = "./common" }
 clap = { version = "4.3.19", features = ["derive"] }
 sudo = "0.6.0"
 wait-timeout = "0.2.0"

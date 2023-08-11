@@ -4,6 +4,7 @@ use std::{
 };
 
 use clap::Parser;
+use common::*;
 use sudo::RunningAs;
 use syslog::SyslogEntry;
 
@@ -13,10 +14,6 @@ mod args;
 mod rule;
 mod syslog;
 mod sysmon;
-
-const SYSLOG_FILE_NAME: &str = "syslog";
-const TARGETS_DIR_NAME: &str = "targets";
-const TARGET_FILE_NAME: &str = "target.elf";
 
 fn main() {
     match sudo::check() {

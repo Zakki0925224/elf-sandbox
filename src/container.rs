@@ -1,8 +1,6 @@
+use common::*;
 use std::{fs::OpenOptions, io::Write, process::Command, time::Duration};
-
 use wait_timeout::ChildExt;
-
-use crate::mount_entry;
 
 const PV_LXC_PATH: &str = "/var/lib/lxc";
 const SYSLOG_PATH: &str = "/var/log/syslog";
@@ -146,11 +144,7 @@ impl Container {
                 &self.container_name,
                 "--",
                 "sh",
-                &format!(
-                    "{}/{}",
-                    self.mount_root_path,
-                    mount_entry::SETUP_SH_FILE_NAME
-                ),
+                &format!("{}/{}", self.mount_root_path, SETUP_SH_FILE_NAME),
             ],
         );
     }
@@ -158,15 +152,12 @@ impl Container {
     pub fn execute_target(&mut self) {
         self.attach(&format!(
             "chmod +x {}/{}",
-            self.mount_root_path,
-            mount_entry::TARGET_ELF_FILE_NAME
+            self.mount_root_path, TARGET_FILE_NAME
         ));
 
         self.attach(&format!(
             "cp {}/{} /root/{}",
-            self.mount_root_path,
-            mount_entry::TARGET_ELF_FILE_NAME,
-            mount_entry::TARGET_ELF_FILE_NAME
+            self.mount_root_path, TARGET_FILE_NAME, TARGET_FILE_NAME
         ));
 
         self.exec_command(
@@ -178,7 +169,7 @@ impl Container {
                 "--",
                 "bash",
                 "-c",
-                &format!("cd /root && ./{}", mount_entry::TARGET_ELF_FILE_NAME),
+                &format!("cd /root && ./{}", TARGET_FILE_NAME),
             ],
         );
     }
@@ -225,9 +216,7 @@ impl Container {
         // TODO: if failed to copy, enter to loop of container stopping
         self.attach(&format!(
             "cp {} {}/{}",
-            SYSLOG_PATH,
-            self.mount_root_path,
-            mount_entry::SYSLOG_FILE_NAME
+            SYSLOG_PATH, self.mount_root_path, SYSLOG_FILE_NAME
         ));
 
         println!("Stopping container...");

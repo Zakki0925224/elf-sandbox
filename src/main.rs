@@ -1,13 +1,12 @@
-use analyzer::Analyzer;
 use clap::Parser;
+use sandbox::Sandbox;
 use sudo::RunningAs;
 
 use crate::args::Arguments;
 
-mod analyzer;
 mod args;
 mod container;
-mod mount_entry;
+mod sandbox;
 
 fn main() {
     match sudo::check() {
@@ -22,7 +21,7 @@ fn main() {
     let release = "jammy";
     let arch = "amd64";
 
-    let mut analyzer = Analyzer::new(
+    let mut analyzer = Sandbox::new(
         container_name.to_string(),
         distribution.to_string(),
         release.to_string(),
@@ -33,5 +32,5 @@ fn main() {
         args.mount_dir_path,
     );
 
-    analyzer.analyze();
+    analyzer.run_container();
 }

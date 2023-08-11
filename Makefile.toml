@@ -11,5 +11,5 @@ script = ['''
 cd ./analyzer
 cargo build
 cd ../
-sudo ./analyzer/target/debug/analyzer --target-root-dir $PWD/analysis_results/20c18b91-db5c-4c4b-a0a1-b457f84ed464
+sudo ./analyzer/target/debug/analyzer --target-root-dir $PWD/sandbox_results/7aee8e41-6a3e-47f2-a202-4ea6f35f74d5
 ''']
